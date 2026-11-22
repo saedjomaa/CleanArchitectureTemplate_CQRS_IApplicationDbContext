@@ -16,6 +16,8 @@ public sealed class CoursesController : ControllerBase
 {
     [HttpPost]
     [EndpointSummary("Create a course")]
+    [ProducesResponseType<Guid>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<Guid>> Create(
         CreateCourseCommand command,
         [FromServices] ICommandHandler<CreateCourseCommand, Result<Guid>> handler,
@@ -29,6 +31,9 @@ public sealed class CoursesController : ControllerBase
 
     [HttpGet("{id:guid}")]
     [EndpointSummary("Get a course by ID")]
+    [ProducesResponseType<CourseResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CourseResponse>> Get(
         Guid id,
         [FromServices] IQueryHandler<GetCourseQuery, Result<CourseResponse>> handler,
@@ -40,6 +45,8 @@ public sealed class CoursesController : ControllerBase
 
     [HttpGet]
     [EndpointSummary("List courses")]
+    [ProducesResponseType<PagedResult<CourseResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PagedResult<CourseResponse>>> List(
         [FromServices] IQueryHandler<ListCoursesQuery, Result<PagedResult<CourseResponse>>> handler,
         CancellationToken cancellationToken,

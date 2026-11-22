@@ -11,6 +11,16 @@ public static class DependencyInjection
     {
         services.AddSingleton(TimeProvider.System);
 
+
+
+        /*
+         Scrutor
+        مكتبة صغيرة تضيف ميزتين لنظام 
+        الـ Dependency Injection المدمج في .NET.
+        1. Scanning (التسجيل التلقائي) :
+             بدلاً من تسجيل كل خدمة يدوياً، يمكننا مسح الأسمبليز للعثور على الخدمات تلقائياً.
+         */
+
         services.Scan(scan => scan.FromAssemblyOf<IApplicationDbContext>()
             .AddClasses(classes => classes
                 .AssignableToAny(typeof(ICommandHandler<,>), typeof(IQueryHandler<,>))
@@ -28,5 +38,21 @@ public static class DependencyInjection
         services.Decorate(typeof(IQueryHandler<,>), typeof(LoggingDecorator.Query<,>));
 
         return services;
+
+
+        /*
+        2. Decorate (التغليف)
+
+        هذه الميزة تسمح لك بأن تغلّف كل هاندلر بطبقه اضافيه لوغ او تحقق قبل او بعده ان يصل التنفيذ له
+
+          لـ MediatR 
+        عادةً هو الذي يوفّر 
+        الـ pipeline for validation & logging.
+              
+
+        LoggingDecorator
+                    └─ ValidationDecorator
+                                └─ CreateCourseCommandHandler
+         */
     }
 }

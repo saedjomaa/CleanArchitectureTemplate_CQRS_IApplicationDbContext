@@ -12,7 +12,7 @@ internal sealed class GetStudentQueryHandler(IApplicationDbContext db)
     {
         var student = await db.Students.AsNoTracking()
             .Where(student => student.Id == query.Id)
-            .Select(student => new StudentResponse(student.Id, student.FullName))
+            .Select(StudentMappings.ToResponse)
             .SingleOrDefaultAsync(cancellationToken);
 
         return student is null
