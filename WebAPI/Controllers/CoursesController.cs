@@ -1,7 +1,7 @@
 using Application.Common.Abstractions;
 using Application.Common.Pagination;
+using Application.Common.Responses;
 using Application.Common.Results;
-using Application.Courses;
 using Application.Courses.Commands.CreateCourse;
 using Application.Courses.Queries.GetCourse;
 using Application.Courses.Queries.ListCourses;

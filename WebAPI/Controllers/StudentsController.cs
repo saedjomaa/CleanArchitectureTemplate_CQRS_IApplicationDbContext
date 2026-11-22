@@ -1,7 +1,7 @@
 using Application.Common.Abstractions;
 using Application.Common.Pagination;
+using Application.Common.Responses;
 using Application.Common.Results;
-using Application.Students;
 using Application.Students.Commands.CreateStudent;
 using Application.Students.Queries.GetStudent;
 using Application.Students.Queries.ListStudents;

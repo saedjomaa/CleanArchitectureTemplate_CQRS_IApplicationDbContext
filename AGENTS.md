@@ -41,9 +41,9 @@ Application/
     Abstractions/   (ICommandHandler, IQueryHandler, IApplicationDbContext)
     Decorators/     (ValidationDecorator, LoggingDecorator)
     Pagination/     (Pagination, PageQueryValidator)
+    Responses/      (every response record: CourseResponse, EnrollmentResponse, ...)
     Results/        (Result, Error, PagedResult)
   [Module]/
-    [Entity]Response.cs        (only when shared by 2+ use cases)
     [Entity]Mappings.cs        (only when a projection is shared by 2+ use cases)
     Commands/[UseCaseName]/
     Queries/[UseCaseName]/
@@ -56,7 +56,7 @@ Application/
 - `[UseCaseName]Command.cs` / `[UseCaseName]Query.cs`
 - `[UseCaseName]CommandHandler.cs` / `[UseCaseName]QueryHandler.cs`
 - `[UseCaseName]CommandValidator.cs` / `[UseCaseName]QueryValidator.cs`
-- `[ResponseName]Response.cs`: inside the use-case folder when only that use case returns it; in the module root when 2+ use cases return it.
+- `[ResponseName]Response.cs`: every response record lives in `Application/Common/Responses/` with the namespace `Application.Common.Responses`, one file per response, whether one or many use cases return it.
 - `[UseCaseName]Mapping.cs` only if the use case has 2+ mappings; otherwise map inside the handler.
 
 ## Rules
@@ -95,6 +95,7 @@ Application/
   - Query → `200 OK` with the response.
 - Every action has `[EndpointSummary]` and a `[ProducesResponseType]` for the success status and for every error status it can return (`ValidationProblemDetails` for 400, `ProblemDetails` for 404/409).
 - List endpoints take `page` and `pageSize` from the query string with defaults from `Pagination`.
+- Keep `WebAPI/WebAPI.http` in sync with the endpoints: add an example for every new endpoint and remove examples for deleted ones.
 
 ## Cross-Cutting Rules
 
@@ -130,7 +131,7 @@ Application/
 - Expose health check endpoints (`/health`) from the start.
 
 ## Testing
-- There is no test project yet. Until one exists, verify changes with `dotnet build CleanArchitectureTemplate.slnx` and by calling the affected endpoints.
+- There is no test project yet. Until one exists, verify changes with `dotnet build CleanArchitectureTemplate.slnx` and by running the affected requests in `WebAPI/WebAPI.http`, including the failure cases.
 
 ## New Use Case Checklist
 1. Check `Requirements.md` for the business rules; add the new rule there if it is missing.
@@ -138,6 +139,6 @@ Application/
 3. Add the command or query record, its handler, and its validator (see Validation). Add a response record and a shared projection where the Mapping section requires it.
 4. Add errors to `[Module]Errors.cs` if needed.
 5. If the model changed, add a migration with the EF Core CLI (see Migrations).
-6. Add the controller action following the Controllers section. No manual DI registration needed.
+6. Add the controller action following the Controllers section, and an example request in `WebAPI.http`. No manual DI registration needed.
 7. Add the endpoint to `Requirements.md`.
 8. Run `dotnet build CleanArchitectureTemplate.slnx` from the repository root.

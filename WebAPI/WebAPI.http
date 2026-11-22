@@ -9,12 +9,6 @@ Accept: application/json
 
 ###
 
-# GetWeatherForecast
-GET {{WebAPI_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
-
 # List students
 GET {{WebAPI_HostAddress}}/api/students?page=1&pageSize=20
 Accept: application/json
