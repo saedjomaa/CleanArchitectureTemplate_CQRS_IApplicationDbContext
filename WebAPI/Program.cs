@@ -8,11 +8,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSerilog((services, logging) => logging
     .ReadFrom.Configuration(builder.Configuration)
     .ReadFrom.Services(services)
-    .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"));
+    .Enrich.FromLogContext());
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => options.Filters.Add<ProblemDetailsLoggingFilter>());
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
@@ -21,7 +19,8 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(
     builder.Configuration.GetConnectionString("School")
-    ?? throw new InvalidOperationException("The School connection string is required."));
+    ?? throw new InvalidOperationException("The School connection string is required."),
+    builder.Configuration.GetValue<bool>("Database:EnableSensitiveDataLogging"));
 
 var app = builder.Build();
 await app.Services.MigrateDatabaseAsync(app.Lifetime.ApplicationStopping);

@@ -7,9 +7,12 @@ namespace Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services, string connectionString, bool enableSensitiveDataLogging = false)
     {
-        services.AddDbContext<SchoolDbContext>(options => options.UseSqlite(connectionString));
+        services.AddDbContext<SchoolDbContext>(options => options
+            .UseSqlite(connectionString)
+            .EnableSensitiveDataLogging(enableSensitiveDataLogging));
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<SchoolDbContext>());
         services.AddHealthChecks().AddDbContextCheck<SchoolDbContext>("database",
             customTestQuery: async (db, cancellationToken) =>

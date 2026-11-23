@@ -104,6 +104,7 @@ Application/
 **Global error handling**
 - Unexpected exceptions are handled by a single `IExceptionHandler` registered in WebAPI that returns a uniform `ProblemDetails`.
 - Never return stack traces or exception messages to the client. Log the exception server-side.
+- Every failed response is logged with the exact `ProblemDetails` JSON sent to the client (`Responded {StatusCode} with {ProblemDetails}`): `ProblemDetailsLoggingFilter`, a global result filter, logs it for controller results (Warning for 4xx, Error for 5xx), and `GlobalExceptionHandler` logs it for unexpected exceptions. Successful responses are not logged this way.
 
 **Transactions**
 - One `SaveChangesAsync` per command is the default and is already atomic.
@@ -129,6 +130,8 @@ Application/
 
 **Observability**
 - Use **Serilog** for structured logging (inject `ILogger<T>`, no static `Log` calls in application code).
+- Serilog sinks and minimum levels are configured only in the `Serilog` section of `appsettings*.json` (read with `ReadFrom.Configuration`), never in code. Logs go to the console and to daily rolling, human-readable text files `logs/log-yyyyMMdd.txt` under the app's working directory, kept for 14 days. The `logs/` folder is git-ignored. The file uses a `Serilog.Expressions` template that draws a separator block before every event whose `EventId.Name` is `RequestStarted`; `CorrelationIdMiddleware` logs that event (method, path, query string, correlation id) at the start of each request. Do not log other events with that EventId. To trace a request, search the files for its `CorrelationId` and read down from its separator. Lines from concurrent requests can interleave.
+- EF Core sensitive data logging (SQL parameter values in logs and in EF exception messages) is switched by `Database:EnableSensitiveDataLogging` in `appsettings*.json` and passed to `AddInfrastructure()`. Never hard-code it. Where it is enabled, treat log files as containing personal data. The value each project uses is recorded in `Requirements.md`.
 - Every request has a correlation id set by `CorrelationIdMiddleware` from `HttpContext.TraceIdentifier`. It is server-generated (an incoming header is not trusted), returned in the `X-Correlation-Id` response header, added to the log scope, and included as `correlationId` in every `ProblemDetails`.
 - Expose health check endpoints (`/health`) from the start.
 
