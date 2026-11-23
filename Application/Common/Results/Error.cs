@@ -4,7 +4,9 @@ public enum ErrorType
 {
     Validation,
     NotFound,
-    Conflict
+    Conflict,
+    BadGateway,
+    GatewayTimeout
 }
 
 public sealed record Error(

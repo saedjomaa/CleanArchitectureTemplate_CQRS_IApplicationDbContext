@@ -84,7 +84,7 @@ Application/
 ## Errors
 - Each module has an `internal static class [Module]Errors` in `Application/Shared/Errors`, with `public static readonly Error` fields.
 - Error codes use the form `[Module].[Reason]` with a plural module name, e.g. `[Module].NotFound`.
-- `ErrorType` maps to HTTP status in `ResultExtensions.ToProblemDetails`: `Validation` → 400, `NotFound` → 404, `Conflict` → 409. The error code is returned in the `code` extension of the `ProblemDetails`.
+- `ErrorType` maps to HTTP status in `ResultExtensions.ToProblemDetails`: `Validation` → 400, `NotFound` → 404, `Conflict` → 409, `BadGateway` → 502, `GatewayTimeout` → 504. The error code is returned in the `code` extension of the `ProblemDetails`.
 
 ## Controllers
 - No business logic. Inject handlers per action with `[FromServices]`, convert a failed `Result` with `result.ToProblemDetails(HttpContext)`.
@@ -98,6 +98,32 @@ Application/
 - Every action has `[EndpointSummary]` and a `[ProducesResponseType]` for the success status and for every error status it can return (`ValidationProblemDetails` for 400, `ProblemDetails` for 404/409).
 - List endpoints take `page` and `pageSize` from the query string with defaults from `Pagination`.
 - Keep `WebAPI/WebAPI.http` in sync with the endpoints: add an example for every new endpoint and remove examples for deleted ones.
+
+## External Services
+Placeholder: `[Service]` (external API name, e.g. the provider's product name).
+- Application owns the contract: `I[Service]Client` in `Application/Common/Abstractions`, returning `Result<T>` with response records from `Application/Common/Responses`. Application never references `HttpClient`, HTTP status codes or the external JSON shapes.
+- Each external service is one Application module named after the service, not one module per external resource:
+  - use cases in `Application/[Service]/Commands/[UseCaseName]/` and `Application/[Service]/Queries/[UseCaseName]/`, named by the resource (e.g. `ListUsers`, `GetUser`, `CreatePost`);
+  - responses `[Service][Resource]Response` in `Application/Common/Responses/` (e.g. `[Service]UserResponse`);
+  - the service's own errors in `Application/Shared/Errors/[Service]Errors.cs`, with codes `[Service].[Reason]` (e.g. `[Service].UserNotFound`).
+- Infrastructure owns the implementation in `Infrastructure/ExternalServices/[Service]/`:
+  - `ExternalServicesOptions` (`Infrastructure/ExternalServices/`): settings shared by all external services, bound from the `ExternalServices` section. It holds one `TimeoutSeconds` used by every client; it is set in configuration and not validated in code. Do not add a per-service timeout.
+  - `[Service]Options`: the service's own settings (its `BaseUrl`), bound from `ExternalServices:[Service]` with `BindConfiguration`. `BaseUrl` is written in configuration as an absolute URL ending with `/`; it is not validated or normalized in code. Never hard-code URLs or timeouts.
+  - `[Service]Models.cs`: `internal` records matching the external JSON. They never leave Infrastructure; the client maps them manually to response records.
+  - `[Service]Client`: `internal sealed` typed HttpClient registered with `AddHttpClient<I[Service]Client, [Service]Client>` in `AddInfrastructure()`, which sets `BaseAddress = new Uri([Service]Options.BaseUrl)` and `Timeout` from `ExternalServicesOptions.TimeoutSeconds`.
+- The client translates every expected failure in one private `SendAsync` helper and never throws for them:
+  - HTTP 404 → `ExternalServiceErrors.NotFound`
+  - any other non-success status or `HttpRequestException` → `ExternalServiceErrors.Unavailable` (502)
+  - `OperationCanceledException` while the caller's token is not cancelled (the timeout elapsed) → `ExternalServiceErrors.Timeout` (504)
+  - `JsonException`, an empty body, or a missing expected header → `ExternalServiceErrors.InvalidResponse` (502)
+  - a cancellation requested by the caller is rethrown.
+  Each failure is logged as a Warning with method and URL.
+- Handlers translate `ExternalServiceErrors.NotFound` to the service's own error (e.g. `[Service]Errors.UserNotFound`) and return other errors as they are.
+- External list endpoints still return `PagedResult<T>`: use the external API's paging parameters and total-count header when it has them; do not fetch everything and page in memory.
+- No automatic retries by default. Never retry non-idempotent requests (POST) automatically.
+- External services are not added to `/health`: their outage does not make this application unhealthy.
+- One controller per external service: `[Service]Controller` with the route prefix `api/[service]` (lowercase service name), holding all of that service's endpoints (e.g. `api/[service]/[resource]`). Do not split a service's endpoints across controllers per resource.
+- A create call to an external API with no local read endpoint returns `201` via `Created((string?)null, value)`.
 
 ## Cross-Cutting Rules
 

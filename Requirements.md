@@ -68,8 +68,20 @@ All error responses are `ProblemDetails` with `code` and `correlationId`. Every 
 - `DELETE /api/students/{studentId}/enrollments/{courseId}` — cancel an enrollment and free the seat. Returns 204, 404, or 409.
 - `GET /api/students/{studentId}/courses?page=&pageSize=` — list the courses a student is enrolled in. Returns 200, or 404 if the student does not exist.
 
+### External API (JSONPlaceholder)
+A reference example of calling an external API. These endpoints are served by `JsonPlaceholderController` under `/api/jsonplaceholder`, proxy https://jsonplaceholder.typicode.com, and do not touch the database.
+- `GET /api/jsonplaceholder/users?page=&pageSize=` — list external users (paging is done by the external API with `_page`/`_limit`; `totalCount` comes from its `X-Total-Count` header). Returns 200, 400, 502, or 504.
+- `GET /api/jsonplaceholder/users/{id}` — get one external user. `id` must be greater than 0. Returns 200, 400, 404 (`JsonPlaceholder.UserNotFound`), 502, or 504.
+- `POST /api/jsonplaceholder/posts` — create a post. Body: `{ "userId", "title", "body" }`; `userId` > 0, `title` required (max 200), `body` required (max 2000). Returns 201 with the created post, 400, 502, or 504. JSONPlaceholder does **not** persist it and always returns `id = 101`.
+
+External failures:
+- The external API is slow (no response within the configured timeout) → 504 `ExternalService.Timeout`.
+- The external API cannot be reached or returns an unexpected error → 502 `ExternalService.Unavailable`.
+- The external API returns invalid JSON or an incomplete response → 502 `ExternalService.InvalidResponse`.
+- No automatic retries.
+
 ### System
-- `GET /health` — health check, including a database check.
+- `GET /health` — health check, including a database check (the external API is not part of it).
 
 ## Seed Data
 Applied by migrations on startup:
@@ -88,6 +100,7 @@ Technical facts specific to this project. `AGENTS.md` is generic and refers to t
 - Architecture: Clean Architecture + CQRS with `IApplicationDbContext` (no repositories).
 - `[Project]` = `School`: `SchoolDbContext` (implements `IApplicationDbContext`), `SchoolSeed`.
 - Database provider: SQLite, connection string `School` = `Data Source=school.db;Foreign Keys=True` (file created next to the WebAPI project). Primary-key violations are detected by SQLite extended error code `1555` in `SchoolDbContext.TrySaveEnrollmentAsync`.
-- Solution file: `CleanArchitectureTemplate.slnx`.
+- Solution file: `CleanArchitectureTemplate_CQRS_IApplicationDbContext.slnx`.
+- External service `[Service]` = `JsonPlaceholder`: `IJsonPlaceholderClient`, `JsonPlaceholderClient`, settings `ExternalServices:JsonPlaceholder:BaseUrl` = `https://jsonplaceholder.typicode.com/`. Shared timeout for all external services: `ExternalServices:TimeoutSeconds` = 10.
 - Known exception: migration `20261120061000_InitialSchool` was written by hand and has no `.Designer.cs` file. Do not copy that style; create new migrations with the EF Core CLI.
 - EF Core sensitive data logging is **enabled in all environments** (`Database:EnableSensitiveDataLogging = true` in `appsettings.json`), by the project owner's decision. Log files therefore contain SQL parameter values such as student names. To disable it in one environment, set it to `false` in `appsettings.{Environment}.json`.
