@@ -1,12 +1,14 @@
 # AGENTS.md
 
-Business rules and the endpoint list live in `Requirements.md`. Read it before adding or changing a use case. This file describes how the code is written.
+Business rules, the endpoint list and project-specific technical facts (database provider, the value of `[Project]`, known exceptions) live in `Requirements.md`. Read it before adding or changing a use case. This file describes how the code is written and is the same for every project that uses this architecture.
+
+Placeholders used below: `[Project]` (project name prefix, e.g. for the `DbContext`), `[Module]` (feature folder, plural), `[Entity]` (domain entity), `[UseCaseName]`, `[Action]`, `[Property]`, `[Reason]`.
 
 ## Stack
-- .NET 11, ASP.NET Core Web API with **Controllers**
+- ASP.NET Core Web API with **Controllers**. The target framework, nullable and implicit usings are set once in `Directory.Build.props`.
 - Clean Architecture + CQRS
 - **No MediatR/Mediator. No AutoMapper** (manual mapping only)
-- FluentValidation, EF Core (SQLite), Scrutor, Serilog
+- FluentValidation, EF Core, Scrutor, Serilog
 
 ## Layers (dependencies point inward only)
 - `Domain`: entities, enums, domain exceptions. References nothing.
@@ -17,21 +19,21 @@ Business rules and the endpoint list live in `Requirements.md`. Read it before a
 Handlers depend on interfaces, never on concrete `DbContext` or Infrastructure types.
 
 ## Data Access (`IApplicationDbContext`)
-- Reads go through the `IQueryable<TEntity>` properties (`Students`, `Courses`, `Enrollments`).
-- Writes go through explicit methods on the interface (`AddStudent`, `AddCourse`, `RemoveEnrollment`, ...). When a new entity or write operation is needed, add a matching `Add[Entity]` / `Remove[Entity]` method to the interface and implement it in `SchoolDbContext`. Do not expose `DbSet<T>` or the `DbContext` itself.
-- Database-provider details (e.g. `SqliteException` error codes for unique or primary-key violations) are handled inside Infrastructure and surfaced to Application as a `bool` or a plain return value, as `TrySaveEnrollmentAsync` does. Application code never references provider-specific types.
+- Reads go through one `IQueryable<[Entity]>` property per entity on the interface.
+- Writes go through explicit methods on the interface (`Add[Entity]`, `Remove[Entity]`, ...). When a new entity or write operation is needed, add the matching method to the interface and implement it in `[Project]DbContext`. Do not expose `DbSet<T>` or the `DbContext` itself.
+- Database-provider details (e.g. provider error codes for unique or primary-key violations) are handled inside Infrastructure and surfaced to Application as a `bool` or a plain return value, for example through a dedicated `TrySave[Entity]Async` method returning `bool`. Application code never references provider-specific types.
 
 ## EF Core Entity Configuration
-- Each persisted entity must define its EF Core mapping in `[EntityName]Configuration.cs` under `Infrastructure/Persistence/Configurations` using `IEntityTypeConfiguration<TEntity>`.
-- `OnModelCreating` must apply these configurations and call `SchoolSeed.Configure(modelBuilder)`.
-- Column lengths come from the entity's constants (e.g. `Course.MaximumTitleLength`), never from literal numbers.
+- Each persisted entity must define its EF Core mapping in `[Entity]Configuration.cs` under `Infrastructure/Persistence/Configurations` using `IEntityTypeConfiguration<[Entity]>`.
+- `OnModelCreating` must apply these configurations and, when the project has seed data, call `[Project]Seed.Configure(modelBuilder)`.
+- Column lengths come from the entity's constants (e.g. `[Entity].Maximum[Property]Length`), never from literal numbers.
 
 ## Migrations
 - Create migrations with the EF Core CLI only, from the repository root:
   `dotnet ef migrations add <Name> --project Infrastructure --startup-project WebAPI --output-dir Persistence/Migrations`
 - Do not hand-write new migrations and do not edit a migration that has already been applied. Change the model, then add a new migration.
-- Seed data lives in `SchoolSeed`. Changing it requires a new migration.
-- `20261120061000_InitialSchool` was written by hand and has no `.Designer.cs` file. This is a known exception; do not copy that style.
+- Seed data lives in `[Project]Seed`. Changing it requires a new migration.
+- Known exceptions to these rules (e.g. an old hand-written migration) are listed in `Requirements.md`. Do not copy their style.
 - The database is migrated automatically at startup (`MigrateDatabaseAsync` in `Program.cs`).
 
 ## Application Structure
@@ -41,7 +43,7 @@ Application/
     Abstractions/   (ICommandHandler, IQueryHandler, IApplicationDbContext)
     Decorators/     (ValidationDecorator, LoggingDecorator)
     Pagination/     (Pagination, PageQueryValidator)
-    Responses/      (every response record: CourseResponse, EnrollmentResponse, ...)
+    Responses/      (every response record: [Entity]Response, ...)
     Results/        (Result, Error, PagedResult)
   [Module]/
     [Entity]Mappings.cs        (only when a projection is shared by 2+ use cases)
@@ -68,27 +70,27 @@ Application/
 - DI: `Application` exposes `AddApplication()`, and `Infrastructure` exposes `AddInfrastructure()`. In `AddApplication()`, use Scrutor to register command and query handlers as scoped services under their handler interfaces. Set `publicOnly: false` in `AddClasses` to include `internal sealed` handlers.
 
 ## Mapping
-- Commands: build entities through domain factory methods (`Course.Create(...)`), not object initializers. Use a `ToEntity` extension only when the factory call needs non-trivial argument mapping.
+- Commands: build entities through domain factory methods (`[Entity].Create(...)`), not object initializers. Use a `ToEntity` extension only when the factory call needs non-trivial argument mapping.
 - Queries: use `AsNoTracking()` and project directly to the response with `Select`. Never load the entity and map it in memory.
-- When the same projection is used by 2+ handlers, define it once as a static `Expression<Func<TEntity, TResponse>>` in `[Module]/[Entity]Mappings.cs` (e.g. `CourseMappings.ToResponse`) and pass it to `Select`. Do not duplicate the `new XResponse(...)` expression.
+- When the same projection is used by 2+ handlers, define it once as a static `Expression<Func<[Entity], [Entity]Response>>` in `[Module]/[Entity]Mappings.cs` (e.g. `[Entity]Mappings.ToResponse`) and pass it to `Select`. Do not duplicate the `new [Entity]Response(...)` expression.
 
 ## Validation
 - Every command has a validator.
 - Every query that takes an ID or is paginated has a validator. IDs are checked with `NotEmpty()` (route constraint `{id:guid}` still accepts `Guid.Empty`).
 - Paginated query validators inherit from `PageQueryValidator<T>`.
-- Validators mirror domain constraints using the entity's constants (`Student.MaximumFullNameLength`), so invalid user input is rejected before reaching the domain.
+- Validators mirror domain constraints using the entity's constants (`[Entity].Maximum[Property]Length`), so invalid user input is rejected before reaching the domain.
 - Domain factory methods still guard their invariants with `ArgumentException` / `ArgumentOutOfRangeException`. These only fire on programming errors and end up in the global exception handler as a 500.
 
 ## Errors
 - Each module has an `internal static class [Module]Errors` in `Application/Shared/Errors`, with `public static readonly Error` fields.
-- Error codes use the form `[Module].[Reason]` with a plural module name, e.g. `Courses.NotFound`, `Enrollments.CourseFull`.
+- Error codes use the form `[Module].[Reason]` with a plural module name, e.g. `[Module].NotFound`.
 - `ErrorType` maps to HTTP status in `ResultExtensions.ToProblemDetails`: `Validation` → 400, `NotFound` → 404, `Conflict` → 409. The error code is returned in the `code` extension of the `ProblemDetails`.
 
 ## Controllers
 - No business logic. Inject handlers per action with `[FromServices]`, convert a failed `Result` with `result.ToProblemDetails(HttpContext)`.
 - Request body:
-  - When the body maps 1:1 to the command, bind the command record directly (e.g. `CreateCourseCommand`).
-  - When the command also needs route values, define a `[Action]Request` record at the bottom of the controller file (e.g. `EnrollStudentRequest`) and build the command in the action.
+  - When the body maps 1:1 to the command, bind the command record directly (e.g. `Create[Entity]Command`).
+  - When the command also needs route values, define a `[Action]Request` record at the bottom of the controller file and build the command in the action.
 - Responses:
   - Create command returning an ID → `201 Created` via `CreatedAtAction(nameof(Get), new { id }, id)`.
   - Command without payload → `204 No Content`.
@@ -112,16 +114,16 @@ Application/
 - Include `rowVersion` in read responses and require it in update requests.
 - Use the client-supplied `rowVersion` as the expected version when saving the update.
 - Return a `Conflict` error (HTTP 409) if the version is stale or EF Core raises `DbUpdateConcurrencyException`.
-- Operations that change an entity as a side effect (e.g. enrolling changes `Course.EnrolledCount`) do not take a client `rowVersion`, but still catch `DbUpdateConcurrencyException` and return a `Conflict` error.
+- An operation that changes a counter or state on another entity as a side effect does not take a client `rowVersion`, but still catches `DbUpdateConcurrencyException` and returns a `Conflict` error.
 
 **Pagination and filtering**
 - Every list query returns `Result<PagedResult<T>>` (items, page, pageSize, totalCount) using `ToPageAsync`.
 - Page size has a default (`Pagination.DefaultPageSize`) and a hard maximum (`Pagination.MaximumPageSize`) enforced in the query validator.
 - Every list query has a deterministic order: a business field first, then `Id` as a tie-breaker.
-- No endpoint supports client-side filtering or sorting yet. When the first one is needed, design one shared pattern in `Application/Common/Pagination`, document it here, and only then use it. Do not add ad-hoc filter parameters to a single endpoint.
+- Client-side filtering and sorting use one shared pattern in `Application/Common/Pagination`. If it does not exist yet, design it, document it here, and only then use it. Do not add ad-hoc filter parameters to a single endpoint.
 
 **Domain entities**
-- Entities are not anemic: business rules live inside them (`Order.Create(...)`, `order.Cancel()`), with private setters and a private parameterless constructor for EF Core.
+- Entities are not anemic: business rules live inside them (`[Entity].Create(...)`, `entity.Cancel()`), with private setters and a private parameterless constructor for EF Core.
 - Handlers orchestrate (load, call domain methods, save). They do not contain business rules.
 - Checks that need the database (an entity exists, a duplicate exists) are done in the handler before calling the domain method, and return the matching `Error`.
 
@@ -131,7 +133,8 @@ Application/
 - Expose health check endpoints (`/health`) from the start.
 
 ## Testing
-- There is no test project yet. Until one exists, verify changes with `dotnet build CleanArchitectureTemplate.slnx` and by running the affected requests in `WebAPI/WebAPI.http`, including the failure cases.
+- If the solution has a test project, add or update tests for every changed use case and run them.
+- Always verify changes by building the solution file (`*.slnx` / `*.sln`) at the repository root with `dotnet build` and by running the affected requests in `WebAPI/WebAPI.http`, including the failure cases.
 
 ## New Use Case Checklist
 1. Check `Requirements.md` for the business rules; add the new rule there if it is missing.
@@ -141,4 +144,4 @@ Application/
 5. If the model changed, add a migration with the EF Core CLI (see Migrations).
 6. Add the controller action following the Controllers section, and an example request in `WebAPI.http`. No manual DI registration needed.
 7. Add the endpoint to `Requirements.md`.
-8. Run `dotnet build CleanArchitectureTemplate.slnx` from the repository root.
+8. Run `dotnet build` on the solution file at the repository root.

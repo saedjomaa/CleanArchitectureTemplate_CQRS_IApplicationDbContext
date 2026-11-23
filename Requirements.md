@@ -80,5 +80,13 @@ Applied by migrations on startup:
 ## Out of Scope (for now)
 - Updating or deleting students and courses (so changing a course's capacity is not possible).
 - Authentication and authorization.
-- Client-side filtering and sorting of lists.
-- Automated tests.
+- Client-side filtering and sorting of lists (no shared filtering pattern exists yet).
+- Automated tests (there is no test project).
+
+## Project Notes
+Technical facts specific to this project. `AGENTS.md` is generic and refers to these through placeholders.
+- Architecture: Clean Architecture + CQRS with `IApplicationDbContext` (no repositories).
+- `[Project]` = `School`: `SchoolDbContext` (implements `IApplicationDbContext`), `SchoolSeed`.
+- Database provider: SQLite, connection string `School` = `Data Source=school.db;Foreign Keys=True` (file created next to the WebAPI project). Primary-key violations are detected by SQLite extended error code `1555` in `SchoolDbContext.TrySaveEnrollmentAsync`.
+- Solution file: `CleanArchitectureTemplate.slnx`.
+- Known exception: migration `20261120061000_InitialSchool` was written by hand and has no `.Designer.cs` file. Do not copy that style; create new migrations with the EF Core CLI.
