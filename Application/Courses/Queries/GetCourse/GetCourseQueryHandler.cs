@@ -1,4 +1,5 @@
 using Application.Common.Abstractions;
+using Application.Common.Responses;
 using Application.Common.Results;
 using Application.Shared.Errors;
 using Microsoft.EntityFrameworkCore;
@@ -12,8 +13,7 @@ internal sealed class GetCourseQueryHandler(IApplicationDbContext db)
     {
         var course = await db.Courses.AsNoTracking()
             .Where(course => course.Id == query.Id)
-            .Select(course => new CourseResponse(
-                course.Id, course.Title, course.Capacity, course.EnrolledCount, course.RowVersion))
+            .Select(CourseMappings.ToResponse)
             .SingleOrDefaultAsync(cancellationToken);
 
         return course is null

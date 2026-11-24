@@ -1,4 +1,5 @@
 using Application.Common.Abstractions;
+using Application.Common.Responses;
 using Application.Common.Results;
 using Application.Shared.Errors;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,7 @@ internal sealed class GetStudentQueryHandler(IApplicationDbContext db)
     {
         var student = await db.Students.AsNoTracking()
             .Where(student => student.Id == query.Id)
-            .Select(student => new StudentResponse(student.Id, student.FullName))
+            .Select(StudentMappings.ToResponse)
             .SingleOrDefaultAsync(cancellationToken);
 
         return student is null

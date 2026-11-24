@@ -1,5 +1,6 @@
 using Application.Common.Abstractions;
 using Application.Common.Pagination;
+using Application.Common.Responses;
 using Application.Common.Results;
 using Application.Enrollments.Commands.CancelEnrollment;
 using Application.Enrollments.Commands.EnrollStudent;
@@ -65,6 +66,9 @@ public sealed class EnrollmentsController : ControllerBase
 
     [HttpGet("courses")]
     [EndpointSummary("List courses a student is enrolled in")]
+    [ProducesResponseType<PagedResult<StudentCourseResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PagedResult<StudentCourseResponse>>> ListEnrolledCourses(
         Guid studentId,
         [FromServices] IQueryHandler<ListStudentCoursesQuery, Result<PagedResult<StudentCourseResponse>>> handler,

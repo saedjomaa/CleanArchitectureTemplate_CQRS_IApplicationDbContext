@@ -1,5 +1,6 @@
 using Application.Common.Abstractions;
 using Application.Common.Pagination;
+using Application.Common.Responses;
 using Application.Common.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,7 @@ internal sealed class ListStudentsQueryHandler(IApplicationDbContext db)
         var page = await db.Students.AsNoTracking()
             .OrderBy(student => student.FullName)
             .ThenBy(student => student.Id)
-            .Select(student => new StudentResponse(student.Id, student.FullName))
+            .Select(StudentMappings.ToResponse)
             .ToPageAsync(query.Page, query.PageSize, cancellationToken);
 
         return Result<PagedResult<StudentResponse>>.Success(page);

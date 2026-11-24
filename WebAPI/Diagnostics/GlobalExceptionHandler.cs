@@ -1,11 +1,14 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.Options;
 
 namespace WebAPI.Diagnostics;
 
 internal sealed class GlobalExceptionHandler(
     ILogger<GlobalExceptionHandler> logger,
-    ProblemDetailsFactory problemDetailsFactory) : IExceptionHandler
+    ProblemDetailsFactory problemDetailsFactory,
+    IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
@@ -15,6 +18,11 @@ internal sealed class GlobalExceptionHandler(
         const int statusCode = StatusCodes.Status500InternalServerError;
         var problem = problemDetailsFactory.CreateProblemDetails(
             httpContext, statusCode, detail: "An unexpected error occurred.");
+
+        logger.LogError(
+            "Responded {StatusCode} with {ProblemDetails}",
+            statusCode,
+            JsonSerializer.Serialize(problem, jsonOptions.Value.SerializerOptions));
 
         httpContext.Response.StatusCode = statusCode;
         await httpContext.Response.WriteAsJsonAsync(
