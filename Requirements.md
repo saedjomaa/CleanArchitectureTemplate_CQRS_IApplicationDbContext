@@ -82,6 +82,8 @@ External failures:
 
 ### System
 - `GET /health` — health check, including a database check (the external API is not part of it).
+- `GET /scalar` — interactive API documentation (Scalar) to try every endpoint. Development only.
+- `GET /openapi/v1.json` — OpenAPI document used by Scalar. Development only.
 
 ## Seed Data
 Applied by migrations on startup:

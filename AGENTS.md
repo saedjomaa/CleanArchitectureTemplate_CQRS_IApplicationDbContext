@@ -98,6 +98,7 @@ Application/
 - Every action has `[EndpointSummary]` and a `[ProducesResponseType]` for the success status and for every error status it can return (`ValidationProblemDetails` for 400, `ProblemDetails` for 404/409).
 - List endpoints take `page` and `pageSize` from the query string with defaults from `Pagination`.
 - Keep `WebAPI/WebAPI.http` in sync with the endpoints: add an example for every new endpoint and remove examples for deleted ones.
+- API documentation, Development only: `MapOpenApi()` serves the OpenAPI document at `/openapi/v1.json`, and `MapScalarApiReference()` (package `Scalar.AspNetCore`) serves an interactive UI at `/scalar` to read and call the endpoints. Both are generated from the controllers, so `[EndpointSummary]` and `[ProducesResponseType]` are what the UI shows. Do not expose them outside Development.
 
 ## External Services
 Placeholder: `[Service]` (external API name, e.g. the provider's product name).

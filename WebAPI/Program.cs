@@ -1,5 +1,6 @@
 using Application;
 using Infrastructure;
+using Scalar.AspNetCore;
 using Serilog;
 using WebAPI.Diagnostics;
 
@@ -30,7 +31,8 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi();               // OpenAPI document: /openapi/v1.json
+    app.MapScalarApiReference();    // Interactive UI that reads it: /scalar
 }
 
 app.UseHttpsRedirection();
